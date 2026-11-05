@@ -1,0 +1,44 @@
+name: Build and deploy
+on:
+  push:
+    paths:
+      - "docflow-react_*.zip"
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: pages
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Unpack newest zip
+        run: |
+          zip=$(ls docflow-react_*.zip | sort -V | tail -n 1)
+          echo "Using $zip"
+          unzip -q "$zip" -d work
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install
+        working-directory: work/docflow-react
+      - run: npm test
+        working-directory: work/docflow-react
+      - run: npm run build
+        working-directory: work/docflow-react
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: work/docflow-react/dist
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
